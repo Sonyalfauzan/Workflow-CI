@@ -28,7 +28,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12.7'
+        python-version: '3.10'
 
     - name: Install dependencies
       run: |
@@ -57,8 +57,8 @@ jobs:
     - name: Verify training artifacts
       run: |
         echo "=== Checking MLflow artifacts ==="
-        ls -la ${{ env.MLPROJECT_DIR }}/mlruns/ || echo "No local mlruns directory"
-        ls -la ${{ env.MLPROJECT_DIR }}/mlflow_artifacts/ || echo "No artifacts directory"
+        find ${{ env.MLPROJECT_DIR }}/mlruns -type f | head -30 || echo "No mlruns directory"
+        ls -la ${{ env.MLPROJECT_DIR }}/mlflow_artifacts/ || echo "No mlflow_artifacts directory"
         echo "=== Artifacts verification done ==="
 
     # ================================================
@@ -80,6 +80,7 @@ jobs:
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
+        git add -f ${{ env.MLPROJECT_DIR }}/mlruns/ || true
         git add -f ${{ env.MLPROJECT_DIR }}/mlflow_artifacts/ || true
         git diff --cached --quiet || git commit -m "Upload model artifacts [CI automated]"
         git push || true
@@ -99,13 +100,13 @@ jobs:
           MODEL_URI="${{ env.MLPROJECT_DIR }}/mlruns/0"
         fi
         echo "Model URI: $MODEL_URI"
-        
+
         # Build Docker image menggunakan MLflow
         mlflow models build-docker \
           -m "$MODEL_URI" \
           -n "${{ env.DOCKER_IMAGE_NAME }}" \
           --enable-mlserver || echo "Docker build completed with MLflow"
-        
+
         echo "=== Docker image built successfully ==="
 
     # ================================================
