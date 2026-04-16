@@ -78,8 +78,8 @@ jobs:
     # ================================================
     - name: Commit artifacts to repository
       run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
+        git config --local user.email "sonyalfauzan46@gmail.com"
+        git config --local user.name "sonyalfauzan"
         git add -f ${{ env.MLPROJECT_DIR }}/mlruns/ || true
         git add -f ${{ env.MLPROJECT_DIR }}/mlflow_artifacts/ || true
         git diff --cached --quiet || git commit -m "Upload model artifacts [CI automated]"
