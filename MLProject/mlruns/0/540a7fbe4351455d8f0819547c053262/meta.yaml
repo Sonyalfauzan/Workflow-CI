@@ -1,0 +1,15 @@
+artifact_uri: file:///home/runner/work/Workflow-CI/Workflow-CI/MLProject/mlruns/0/540a7fbe4351455d8f0819547c053262/artifacts
+end_time: 1777000807133
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 540a7fbe4351455d8f0819547c053262
+run_name: skittish-fox-281
+run_uuid: 540a7fbe4351455d8f0819547c053262
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777000796757
+status: 3
+tags: []
+user_id: runner
