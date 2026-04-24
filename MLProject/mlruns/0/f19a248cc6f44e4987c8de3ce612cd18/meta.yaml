@@ -1,0 +1,15 @@
+artifact_uri: file:///home/runner/work/Workflow-CI/Workflow-CI/MLProject/mlruns/0/f19a248cc6f44e4987c8de3ce612cd18/artifacts
+end_time: 1776998714325
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: f19a248cc6f44e4987c8de3ce612cd18
+run_name: vaunted-dolphin-407
+run_uuid: f19a248cc6f44e4987c8de3ce612cd18
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776998701869
+status: 3
+tags: []
+user_id: runner
