@@ -3,7 +3,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python=3.12.7
+  - python=3.10
   - pip
   - pip:
     - scikit-learn==1.5.2

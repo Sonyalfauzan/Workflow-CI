@@ -14,6 +14,8 @@ env:
 jobs:
   train-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     # ================================================
@@ -21,6 +23,8 @@ jobs:
     # ================================================
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     # ================================================
     # Step 2: Setup Python environment
@@ -42,13 +46,14 @@ jobs:
       working-directory: ${{ env.MLPROJECT_DIR }}
       run: |
         echo "=== Starting model training ==="
-        python modelling.py \
-          --n_estimators 200 \
-          --max_depth 15 \
-          --min_samples_split 5 \
-          --min_samples_leaf 2 \
-          --test_size 0.2 \
-          --random_state 42
+        mlflow run . \
+          -P n_estimators=200 \
+          -P max_depth=15 \
+          -P min_samples_split=5 \
+          -P min_samples_leaf=2 \
+          -P test_size=0.2 \
+          -P random_state=42 \
+          --env-manager=local
         echo "=== Model training completed ==="
 
     # ================================================
@@ -58,59 +63,68 @@ jobs:
       run: |
         echo "=== Checking MLflow artifacts ==="
         find ${{ env.MLPROJECT_DIR }}/mlruns -type f | head -30 || echo "No mlruns directory"
-        ls -la ${{ env.MLPROJECT_DIR }}/mlflow_artifacts/ || echo "No mlflow_artifacts directory"
         echo "=== Artifacts verification done ==="
 
     # ================================================
-    # Step 5: Upload artifacts to GitHub (Skilled)
+    # Step 5: Upload artifacts to GitHub Actions (Skilled)
     # ================================================
     - name: Upload model artifacts
       uses: actions/upload-artifact@v4
       with:
         name: wine-quality-model-artifacts
-        path: |
-          ${{ env.MLPROJECT_DIR }}/mlruns/
-          ${{ env.MLPROJECT_DIR }}/mlflow_artifacts/
+        path: ${{ env.MLPROJECT_DIR }}/mlruns/
         retention-days: 30
+        if-no-files-found: warn
 
     # ================================================
     # Step 6: Commit artifacts back to repo (Skilled)
     # ================================================
     - name: Commit artifacts to repository
       run: |
-        git config --local user.email "sonyalfauzan46@gmail.com"
-        git config --local user.name "sonyalfauzan"
+        git config --global user.email "actions@github.com"
+        git config --global user.name "GitHub Actions"
         git add -f ${{ env.MLPROJECT_DIR }}/mlruns/ || true
-        git add -f ${{ env.MLPROJECT_DIR }}/mlflow_artifacts/ || true
         git diff --cached --quiet || git commit -m "Upload model artifacts [CI automated]"
-        git push || true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main || true
 
     # ================================================
-    # Step 7: Build Docker image with MLflow (Advanced)
+    # Step 7: Create Dockerfile for model serving (Advanced)
+    # ================================================
+    - name: Create Dockerfile
+      run: |
+        # Cari run_id dari mlruns
+        RUN_ID=$(find ${{ env.MLPROJECT_DIR }}/mlruns -name "meta.yaml" -path "*/runs/*" | head -1 | xargs grep -l "run_id" | head -1 | xargs dirname | xargs basename 2>/dev/null || echo "latest")
+        echo "Run ID: $RUN_ID"
+
+        cat > Dockerfile << 'EOF'
+        FROM python:3.10-slim
+
+        WORKDIR /app
+
+        RUN pip install --no-cache-dir mlflow==2.19.0 scikit-learn==1.5.2 pandas==2.2.3 numpy==1.26.4
+
+        COPY MLProject/mlruns/ /app/mlruns/
+
+        EXPOSE 8080
+
+        CMD ["mlflow", "models", "serve", "--model-uri", "models:/WineQualityRandomForest/latest", "--host", "0.0.0.0", "--port", "8080", "--no-conda"]
+        EOF
+
+        echo "=== Dockerfile created ==="
+        cat Dockerfile
+
+    # ================================================
+    # Step 8: Build Docker image (Advanced)
     # ================================================
     - name: Build Docker image
       run: |
         echo "=== Building Docker image ==="
-        # Menemukan model URI dari mlruns
-        MODEL_URI=$(find ${{ env.MLPROJECT_DIR }}/mlruns -name "MLmodel" -path "*/model/*" | head -1 | xargs dirname)
-        if [ -z "$MODEL_URI" ]; then
-          echo "Model URI not found, using default path"
-          MODEL_URI="${{ env.MLPROJECT_DIR }}/mlruns/0"
-        fi
-        echo "Model URI: $MODEL_URI"
-
-        # Build Docker image menggunakan MLflow
-        mlflow models build-docker \
-          -m "$MODEL_URI" \
-          -n "${{ env.DOCKER_IMAGE_NAME }}" \
-          --enable-mlserver || echo "Docker build completed with MLflow"
-
+        docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
+        docker images | grep wine-quality
         echo "=== Docker image built successfully ==="
 
     # ================================================
-    # Step 8: Push Docker image to Docker Hub (Advanced)
+    # Step 9: Login and Push Docker image to Docker Hub (Advanced)
     # ================================================
     - name: Login to Docker Hub
       uses: docker/login-action@v3
@@ -118,9 +132,8 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Push Docker image
+    - name: Push Docker image to Docker Hub
       run: |
-        docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.DOCKER_IMAGE_NAME }}:latest
         docker push ${{ env.DOCKER_IMAGE_NAME }}:latest
         echo "=== Docker image pushed to Docker Hub ==="
         echo "Image: ${{ env.DOCKER_IMAGE_NAME }}:latest"

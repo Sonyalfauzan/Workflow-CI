@@ -91,6 +91,14 @@ def main():
     print("PELATIHAN MODEL - MLflow Project (CI)")
     print("=" * 60)
 
+    # Aktifkan MLflow autolog - mencatat model, parameter, metrik, dan artefak otomatis
+    mlflow.sklearn.autolog(
+        log_models=True,
+        log_input_examples=True,
+        log_model_signatures=True,
+    )
+    print("MLflow autolog aktif.")
+
     with mlflow.start_run() as run:
         # Log parameters
         mlflow.log_param("n_estimators", args.n_estimators)
