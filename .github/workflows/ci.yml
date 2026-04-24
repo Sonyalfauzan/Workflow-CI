@@ -18,17 +18,11 @@ jobs:
       contents: write
 
     steps:
-    # ================================================
-    # Step 1: Checkout repository
-    # ================================================
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    # ================================================
-    # Step 2: Setup Python environment
-    # ================================================
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
@@ -39,13 +33,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install scikit-learn==1.5.2 mlflow==2.19.0 pandas==2.2.3 numpy==1.26.4 matplotlib==3.9.2 seaborn==0.13.2
 
-    # ================================================
-    # Step 3: Run MLflow Project (Train Model)
-    # ================================================
     - name: Train model with MLflow Project
       working-directory: ${{ env.MLPROJECT_DIR }}
       run: |
-        echo "=== Starting model training ==="
         mlflow run . \
           -P n_estimators=200 \
           -P max_depth=15 \
@@ -54,20 +44,11 @@ jobs:
           -P test_size=0.2 \
           -P random_state=42 \
           --env-manager=local
-        echo "=== Model training completed ==="
 
-    # ================================================
-    # Step 4: Verify artifacts
-    # ================================================
     - name: Verify training artifacts
       run: |
-        echo "=== Checking MLflow artifacts ==="
         find ${{ env.MLPROJECT_DIR }}/mlruns -type f | head -30 || echo "No mlruns directory"
-        echo "=== Artifacts verification done ==="
 
-    # ================================================
-    # Step 5: Upload artifacts to GitHub Actions (Skilled)
-    # ================================================
     - name: Upload model artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -76,9 +57,6 @@ jobs:
         retention-days: 30
         if-no-files-found: warn
 
-    # ================================================
-    # Step 6: Commit artifacts back to repo (Skilled)
-    # ================================================
     - name: Commit artifacts to repository
       run: |
         git config --global user.email "actions@github.com"
@@ -87,45 +65,22 @@ jobs:
         git diff --cached --quiet || git commit -m "Upload model artifacts [CI automated]"
         git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main || true
 
-    # ================================================
-    # Step 7: Create Dockerfile for model serving (Advanced)
-    # ================================================
     - name: Create Dockerfile
       run: |
-        # Cari run_id dari mlruns
-        RUN_ID=$(find ${{ env.MLPROJECT_DIR }}/mlruns -name "meta.yaml" -path "*/runs/*" | head -1 | xargs grep -l "run_id" | head -1 | xargs dirname | xargs basename 2>/dev/null || echo "latest")
-        echo "Run ID: $RUN_ID"
-
         cat > Dockerfile << 'EOF'
         FROM python:3.10-slim
-
         WORKDIR /app
-
         RUN pip install --no-cache-dir mlflow==2.19.0 scikit-learn==1.5.2 pandas==2.2.3 numpy==1.26.4
-
         COPY MLProject/mlruns/ /app/mlruns/
-
         EXPOSE 8080
-
         CMD ["mlflow", "models", "serve", "--model-uri", "models:/WineQualityRandomForest/latest", "--host", "0.0.0.0", "--port", "8080", "--no-conda"]
         EOF
 
-        echo "=== Dockerfile created ==="
-        cat Dockerfile
-
-    # ================================================
-    # Step 8: Build Docker image (Advanced)
-    # ================================================
     - name: Build Docker image
       run: |
-        echo "=== Building Docker image ==="
         docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
         docker images | grep wine-quality
-        echo "=== Docker image built successfully ==="
 
-    # ================================================
-    # Step 9: Login and Push Docker image to Docker Hub (Advanced)
-    # ================================================
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
@@ -135,5 +90,4 @@ jobs:
     - name: Push Docker image to Docker Hub
       run: |
         docker push ${{ env.DOCKER_IMAGE_NAME }}:latest
-        echo "=== Docker image pushed to Docker Hub ==="
         echo "Image: ${{ env.DOCKER_IMAGE_NAME }}:latest"
